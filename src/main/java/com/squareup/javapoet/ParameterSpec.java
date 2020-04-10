@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
@@ -35,12 +37,14 @@ public final class ParameterSpec {
   public final List<AnnotationSpec> annotations;
   public final Set<Modifier> modifiers;
   public final TypeName type;
+  public final CodeBlock javadoc;
 
   private ParameterSpec(Builder builder) {
     this.name = checkNotNull(builder.name, "name == null");
     this.annotations = Util.immutableList(builder.annotations);
     this.modifiers = Util.immutableSet(builder.modifiers);
     this.type = checkNotNull(builder.type, "type == null");
+    this.javadoc = builder.javadoc.build();
   }
 
   public boolean hasModifier(Modifier modifier) {
@@ -81,10 +85,19 @@ public final class ParameterSpec {
   }
 
   public static ParameterSpec get(VariableElement element) {
+    checkArgument(element.getKind().equals(ElementKind.PARAMETER), "element is not a parameter");
+
+    // Copy over any annotations from element.
+    List<AnnotationSpec> annotations = element.getAnnotationMirrors()
+        .stream()
+        .map((mirror) -> AnnotationSpec.get(mirror))
+        .collect(Collectors.toList());
+
     TypeName type = TypeName.get(element.asType());
     String name = element.getSimpleName().toString();
     return ParameterSpec.builder(type, name)
         .addModifiers(element.getModifiers())
+        .addAnnotations(annotations)
         .build();
   }
 
@@ -121,13 +134,24 @@ public final class ParameterSpec {
   public static final class Builder {
     private final TypeName type;
     private final String name;
+    private final CodeBlock.Builder javadoc = CodeBlock.builder();
 
-    private final List<AnnotationSpec> annotations = new ArrayList<>();
-    private final List<Modifier> modifiers = new ArrayList<>();
+    public final List<AnnotationSpec> annotations = new ArrayList<>();
+    public final List<Modifier> modifiers = new ArrayList<>();
 
     private Builder(TypeName type, String name) {
       this.type = type;
       this.name = name;
+    }
+
+    public Builder addJavadoc(String format, Object... args) {
+      javadoc.add(format, args);
+      return this;
+    }
+
+    public Builder addJavadoc(CodeBlock block) {
+      javadoc.add(block);
+      return this;
     }
 
     public Builder addAnnotations(Iterable<AnnotationSpec> annotationSpecs) {
@@ -160,6 +184,9 @@ public final class ParameterSpec {
     public Builder addModifiers(Iterable<Modifier> modifiers) {
       checkNotNull(modifiers, "modifiers == null");
       for (Modifier modifier : modifiers) {
+        if (!modifier.equals(Modifier.FINAL)) {
+          throw new IllegalStateException("unexpected parameter modifier: " + modifier);
+        }
         this.modifiers.add(modifier);
       }
       return this;
