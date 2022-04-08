@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
@@ -33,9 +32,6 @@ import static com.squareup.javapoet.Util.checkNotNull;
 public final class ClassName extends TypeName implements Comparable<ClassName> {
   public static final ClassName OBJECT = ClassName.get(Object.class);
 
-  /** The name representing the default Java package. */
-  private static final String NO_PACKAGE = "";
-
   /** The package name of this class, or "" if this is in the default package. */
   final String packageName;
 
@@ -44,8 +40,6 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
 
   /** This class name, like "Entry" for java.util.Map.Entry. */
   final String simpleName;
-
-  private List<String> simpleNames;
 
   /** The full class name like "java.util.Map.Entry". */
   final String canonicalName;
@@ -57,7 +51,7 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
   private ClassName(String packageName, ClassName enclosingClassName, String simpleName,
       List<AnnotationSpec> annotations) {
     super(annotations);
-    this.packageName = Objects.requireNonNull(packageName, "packageName == null");
+    this.packageName = packageName;
     this.enclosingClassName = enclosingClassName;
     this.simpleName = simpleName;
     this.canonicalName = enclosingClassName != null
@@ -114,18 +108,11 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
   }
 
   public List<String> simpleNames() {
-    if (simpleNames != null) {
-      return simpleNames;
+    List<String> simpleNames = new ArrayList<>();
+    if (enclosingClassName != null) {
+      simpleNames.addAll(enclosingClassName().simpleNames());
     }
-
-    if (enclosingClassName == null) {
-      simpleNames = Collections.singletonList(simpleName);
-    } else {
-      List<String> mutableNames = new ArrayList<>();
-      mutableNames.addAll(enclosingClassName().simpleNames());
-      mutableNames.add(simpleName);
-      simpleNames = Collections.unmodifiableList(mutableNames);
-    }
+    simpleNames.add(simpleName);
     return simpleNames;
   }
 
@@ -151,14 +138,6 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
     return simpleName;
   }
 
-  /**
-   * Returns the full class name of this class.
-   * Like {@code "java.util.Map.Entry"} for {@link Map.Entry}.
-   * */
-  public String canonicalName() {
-    return canonicalName;
-  }
-
   public static ClassName get(Class<?> clazz) {
     checkNotNull(clazz, "clazz == null");
     checkArgument(!clazz.isPrimitive(), "primitive types cannot be represented as a ClassName");
@@ -176,7 +155,7 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
     if (clazz.getEnclosingClass() == null) {
       // Avoid unreliable Class.getPackage(). https://github.com/square/javapoet/issues/295
       int lastDot = clazz.getName().lastIndexOf('.');
-      String packageName = (lastDot != -1) ? clazz.getName().substring(0, lastDot) : NO_PACKAGE;
+      String packageName = (lastDot != -1) ? clazz.getName().substring(0, lastDot) : null;
       return new ClassName(packageName, null, name);
     }
 
@@ -198,7 +177,7 @@ public final class ClassName extends TypeName implements Comparable<ClassName> {
       p = classNameString.indexOf('.', p) + 1;
       checkArgument(p != 0, "couldn't make a guess for %s", classNameString);
     }
-    String packageName = p == 0 ? NO_PACKAGE : classNameString.substring(0, p - 1);
+    String packageName = p == 0 ? "" : classNameString.substring(0, p - 1);
 
     // Add class names like "Map" and "Entry".
     ClassName className = null;

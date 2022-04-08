@@ -189,7 +189,7 @@ public final class CodeBlock {
       while (p < format.length()) {
         int nextP = format.indexOf("$", p);
         if (nextP == -1) {
-          formatParts.add(format.substring(p));
+          formatParts.add(format.substring(p, format.length()));
           break;
         }
 
@@ -421,12 +421,6 @@ public final class CodeBlock {
 
     public Builder unindent() {
       this.formatParts.add("$<");
-      return this;
-    }
-
-    public Builder clear() {
-      formatParts.clear();
-      args.clear();
       return this;
     }
 
