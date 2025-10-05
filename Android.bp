@@ -32,6 +32,7 @@ license {
 
 java_library_host {
     name: "javapoet",
+    defaults: ["error_prone_dependency_defaults"],
     srcs: ["src/main/java/**/*.java"],
 }
 
